@@ -1,0 +1,43 @@
+pcgiwebnews.py
+
+Jim Tittsler, Jim.Tittsler@tpc.ml.org
+
+http://starship.python.net/crew/jtittsler/
+
+1999.05.09
+
+pcgiwebnews is a Persistent CGI program for accessing an NNRP news
+server and rendering the article list and the articles in a three pane
+HTML view.  It was written to provide an alternative means of accessing
+our community news server for those that are prohibited by firewalls from
+using a real news client, or for people that just want to sample the
+groups and are intimidated by setting up a news client.
+
+pcgiwebnews uses part of the Bobo object publishing technique that
+was a precursor to Zope.  It effectively treats the news server as
+an underlying database.
+
+Access to some newsgroups can require authentication.  This can be
+accommodated by pcgiwebnews by building in account (A=) and password
+(P=) parameters in the newsgroup URLs.
+
+The user posts articles by mailing them to a mail-to-news gateway.
+This allows him to use the features of his mail client (like
+spell checking), rather than forcing him to enter data into an
+HTML textbox.
+
+Because of resource constraints on the machine where pcgiwebnews was
+originally hosted, the "front page" that initially greets the user is
+periodically updated by a cron job (ngupdate) rather than being
+*live*.  ngupdate looks through a list of static HTML files for lines
+that match the newsgroup table and updates the number of articles
+posted in the past 1/7/21 days.  This reduces load at the expense of
+not having the absolute latest information on the number of articles
+for each group.  It would be worthwhile to make the front page *live*
+and also to keep track of articles seen by the user (with cookies or
+login) to highlight new messages.
+
+.. PCGI http://starship.python.net/crew/jbauer/persistcgi/index.html
+.. Bobo http://www.digicool.com/
+.. Example installation  http://www.tpc.ml.org
+

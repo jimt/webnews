@@ -1,0 +1,113 @@
+#! /usr/bin/python
+# -*- python -*-
+# $Id: ngupdate,v 1.3 1998/04/10 08:06:55 tpc Exp tpc $
+#
+# 1997.11.21 7j1ajh@amsat.org   add Expires header to newsgroups.html
+# 1997.11.20 7j1ajh@amsat.org	update newsgroups.html to show activity
+# 1998.04.02 7j1ajh@amsat.org	fix row matching regex so that it finds rows
+#				  with <FONT></FONT> in them
+
+import sys, os, string, time, cgi, regex
+from nntplib import NNTP
+from time import ctime, time, localtime, strftime, asctime, gmtime
+from backupfile import backupfile
+
+# number of seconds until the HTML page 'expires'
+valid_secs = 60*60*12	# 12 hours
+
+# news server authentication
+user = 'account'
+password = 'password'
+
+NEWS_SERVER = 'news.tpc.ml.org'
+#NEWS_SERVER = 'pengu.mww.dyn.ml.org'
+filenames = ('/home/tpc/www/tpc/newsgroups.html',
+             '/home/tpc/www/member/newsgroups.html',
+	     '/home/tpc/www/exec/newsgroups.html')
+#filename = '/home/jwt/newsgroups.html'
+
+def do_update(filename):
+    try:
+        news = NNTP(NEWS_SERVER)
+    except:
+        print "Can not open news server:", NEWS_SERVER
+        raise SystemExit
+
+    try:
+        resp = news.shortcmd('MODE READER')
+    except:
+        print "Can not communicate with server:", NEWS_SERVER
+        raise SystemExit
+
+    resp = news.shortcmd('authinfo user '+user)
+    if resp[:3] != '381':
+	raise SystemExit
+    resp = news.shortcmd('authinfo pass '+password)
+    if resp[:3] != '281':
+        raise SystemExit
+
+    (fin, fout) = backupfile(filename)
+
+    nowsecs = time()
+    newstime = strftime("%H%M%S", localtime(nowsecs))
+    datem1 = strftime("%y%m%d", localtime(nowsecs - (60*60*24)))
+    datem7 = strftime("%y%m%d", localtime(nowsecs - (60*60*24*7)))
+    datem21 = strftime("%y%m%d", localtime(nowsecs - (60*60*24*21)))
+
+    # copy the page up to the table comment
+    while 1:
+        line = fin.readline()
+        if line == '': break
+        if string.find(line, 'HTTP-EQUIV="Expires"') >= 0:
+            fout.write('<META HTTP-EQUIV="Expires" CONTENT="%s"\n' % asctime(gmtime(nowsecs + valid_secs)))
+        else:
+            fout.write(line)
+        if string.find(line, "##newsgroups table") >= 0: break
+    
+    row = regex.symcomp('<TR><TD>.*</TD>\(<lead><TD>[^:]*://news.tpc.ml.org/\)\(<newsgroup>[^"]+\)\(<rest>.*\)')
+    
+    while 1:
+        line = fin.readline()
+        if line == '': break
+        if string.find(line, "</TABLE>") >= 0:
+            break
+
+        if row.search(line) >= 0:
+            newsgroup = row.group('newsgroup')
+            idsm1 = 0
+            idsm7 = 0
+            idsm21 = 0
+            try:
+	        resp, idsm1 = news.newnews(newsgroup, datem1, newstime)
+	        resp, idsm7 = news.newnews(newsgroup, datem7, newstime)
+	        resp, idsm21 = news.newnews(newsgroup, datem21, newstime)
+	    except:
+	        print "no such newsgroup:", newsgroup
+
+	    fontm1 = ""
+	    fontm1e = ""
+	    fontm7 = ""
+	    fontm7e = ""
+	    if len(idsm1)>3:
+	        fontm1 = '<FONT COLOR="#FF0000">'
+	        fontm1e = '</FONT>'
+            if len(idsm7)>10:
+	        fontm7 = '<FONT COLOR="#800000">'
+	        fontm7e = '</FONT>'
+	    line = "<TR><TD>%s%d%s/%s%d%s/%d</TD>%s%s%s\n" % (fontm1, len(idsm1), fontm1e, fontm7, len(idsm7), fontm7e, len(idsm21), row.group('lead'), newsgroup, row.group('rest'))
+        fout.write(line)
+
+    # close the table and indicate update time
+    fout.write("</TABLE><P>Last updated: %s</P>\n" % ctime(time()))
+
+    while 1:
+        line = fin.readline()
+        if line == '': break
+        fout.write(line)
+
+    fin.close()
+    fout.close()
+
+for filename in filenames:
+    do_update(filename)
+    
